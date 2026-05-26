@@ -1,0 +1,1773 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Re:BID - Digital Edition</title>
+<style>
+  :root {
+    --bg-deep: #0a0608;
+    --bg-card: #1a1216;
+    --gold: #d4a347;
+    --gold-bright: #f0c060;
+    --purple: #6b2d8a;
+    --yellow: #c4831a;
+    --red-wax: #8b2c2c;
+    --text: #e8e0d0;
+    --text-dim: #8a8070;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg-deep); color: var(--text); font-family: "Georgia", "Yu Mincho", serif; }
+  body {
+    background:
+      radial-gradient(ellipse at top, #1f1318 0%, #0a0608 60%),
+      var(--bg-deep);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  .app { max-width: 1400px; margin: 0 auto; padding: 12px 16px 40px; }
+  h1.logo {
+    font-family: "Georgia", serif;
+    font-size: 28px;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+    text-align: center;
+    padding: 8px 0 4px;
+    font-weight: 400;
+  }
+  h1.logo::before, h1.logo::after { content: "✦"; margin: 0 12px; color: var(--gold); font-size: 14px; vertical-align: middle; }
+  .subtitle { text-align: center; color: var(--text-dim); font-size: 12px; letter-spacing: 0.3em; margin-bottom: 16px; }
+
+  /* プレイヤー領域 */
+  .player-zone { padding: 14px; border-radius: 8px; margin-bottom: 12px; position: relative; }
+  .player-zone.p1 { background: linear-gradient(180deg, rgba(196,131,26,0.08), rgba(196,131,26,0.02)); border: 1px solid rgba(196,131,26,0.25); }
+  .player-zone.p2 { background: linear-gradient(180deg, rgba(107,45,138,0.08), rgba(107,45,138,0.02)); border: 1px solid rgba(107,45,138,0.25); }
+  .player-zone.active { box-shadow: 0 0 0 2px var(--gold), 0 0 30px rgba(212,163,71,0.3); }
+  .player-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+  .player-name { font-size: 18px; letter-spacing: 0.1em; }
+  .player-name.p1 { color: var(--gold-bright); }
+  .player-name.p2 { color: #b09cd0; }
+  .player-stats { display: flex; gap: 18px; font-size: 13px; color: var(--text-dim); }
+  .player-stats strong { color: var(--text); font-size: 15px; margin-left: 4px; }
+
+  /* セクション見出し */
+  .zone-label { font-size: 10px; letter-spacing: 0.25em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px; }
+
+  /* カード共通 */
+  .card-row { display: flex; gap: 8px; flex-wrap: wrap; min-height: 110px; align-items: center; }
+  .card {
+    width: 80px; height: 112px;
+    border-radius: 6px;
+    background: #2a1a20;
+    border: 1px solid rgba(212,163,71,0.3);
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    user-select: none;
+  }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card.large { width: 110px; height: 154px; }
+  .card.tiny { width: 56px; height: 80px; }
+  .card.selectable:hover { transform: translateY(-6px); box-shadow: 0 6px 20px rgba(212,163,71,0.4); }
+  .card.selected { transform: translateY(-10px); box-shadow: 0 0 0 3px var(--gold), 0 8px 24px rgba(212,163,71,0.5); }
+  .card.disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.6); }
+  .card.face-down { background: linear-gradient(135deg, #1a1216 0%, #2a1820 100%); }
+
+  /* 画像なし時のフォールバック */
+  .card-fallback {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 6px; text-align: center; font-size: 11px;
+    line-height: 1.3;
+    color: var(--text);
+  }
+  .card-fallback .name { font-size: 10px; opacity: 0.8; margin-bottom: 2px; letter-spacing: 0.05em; }
+  .card-fallback .power { font-size: 28px; font-weight: bold; }
+  .card-fallback.product .power { font-size: 32px; color: var(--gold-bright); }
+  .card-fallback.product.negative .power { color: #c44; }
+  .card-fallback.role.p1 { background: linear-gradient(135deg, #2a1810 0%, #1a0e08 100%); border: 1px solid var(--yellow); }
+  .card-fallback.role.p1 .power { color: var(--yellow); }
+  .card-fallback.role.p2 { background: linear-gradient(135deg, #1a0e20 0%, #0a0410 100%); border: 1px solid var(--purple); }
+  .card-fallback.role.p2 .power { color: #b09cd0; }
+
+  /* 場の商品エリア */
+  .stage {
+    margin: 18px 0;
+    padding: 18px;
+    background: rgba(20,12,16,0.6);
+    border: 1px solid rgba(212,163,71,0.2);
+    border-radius: 10px;
+    text-align: center;
+  }
+  .stage-title { font-size: 11px; letter-spacing: 0.3em; color: var(--gold); margin-bottom: 12px; text-transform: uppercase; }
+  .stage-products { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; min-height: 160px; align-items: center; }
+  .deck-info { font-size: 12px; color: var(--text-dim); margin-top: 10px; }
+  .deck-info strong { color: var(--gold); font-size: 16px; margin: 0 4px; }
+
+  /* ボタン */
+  button {
+    font-family: inherit;
+    background: linear-gradient(180deg, #3a2a18, #2a1a10);
+    color: var(--gold-bright);
+    border: 1px solid var(--gold);
+    padding: 10px 24px;
+    font-size: 14px;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+  }
+  button:hover { background: linear-gradient(180deg, #4a3a28, #3a2a18); transform: translateY(-1px); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: linear-gradient(180deg, var(--gold), #a37a30); color: #1a0e08; font-weight: bold; }
+  button.danger { border-color: #a44; color: #f88; }
+
+  /* オーバーレイ系（暗幕、モーダル） */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    padding: 20px;
+  }
+  .modal {
+    background: linear-gradient(180deg, #1a1216, #0f0a0c);
+    border: 1px solid var(--gold);
+    border-radius: 10px;
+    padding: 32px 28px;
+    max-width: 520px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(212,163,71,0.3);
+  }
+  .modal h2 { font-size: 22px; color: var(--gold); margin-bottom: 16px; letter-spacing: 0.1em; font-weight: 400; }
+  .modal p { color: var(--text); line-height: 1.7; margin-bottom: 20px; font-size: 14px; }
+  .modal-buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  /* ログ */
+  .log {
+    margin-top: 20px;
+    background: rgba(0,0,0,0.4);
+    border-left: 2px solid var(--gold);
+    padding: 12px 16px;
+    max-height: 180px;
+    overflow-y: auto;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .log-entry { color: var(--text-dim); margin-bottom: 4px; }
+  .log-entry.round { color: var(--gold); font-weight: bold; margin-top: 8px; }
+  .log-entry.win { color: var(--gold-bright); }
+
+  /* スタートメニュー特別装飾 */
+  .start-screen { text-align: center; padding: 40px 20px; }
+  .start-screen h1 { font-size: 56px; color: var(--gold); letter-spacing: 0.15em; margin-bottom: 8px; font-weight: 400; }
+  .start-screen .tagline { color: var(--text-dim); font-style: italic; margin-bottom: 36px; font-size: 15px; }
+  .start-screen .credits { margin-top: 40px; color: var(--text-dim); font-size: 12px; }
+
+  /* 選択肢グリッド */
+  .choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 16px; }
+  .choice-grid button { padding: 12px; font-size: 13px; }
+
+  /* 結果表示 */
+  .result-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    margin-left: 8px;
+  }
+  .result-badge.eliminated { background: rgba(170,68,68,0.2); color: #f88; border: 1px solid #a44; }
+  .result-badge.winner { background: rgba(212,163,71,0.2); color: var(--gold-bright); border: 1px solid var(--gold); }
+
+  /* 舞台裏パネル（入札画面で両者を横並びに表示） */
+  .backstage-panel {
+    margin: 0 0 14px;
+    padding: 14px;
+    background: rgba(10,6,8,0.6);
+    border: 1px solid rgba(212,163,71,0.18);
+    border-radius: 8px;
+  }
+  .backstage-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .backstage-side {
+    padding: 10px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.25);
+    min-height: 110px;
+  }
+  .backstage-side.p1 { border: 1px solid rgba(196,131,26,0.35); }
+  .backstage-side.p2 { border: 1px solid rgba(107,45,138,0.4); }
+  .backstage-side-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed rgba(212,163,71,0.15);
+  }
+  .backstage-cards {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    min-height: 80px;
+  }
+  .backstage-empty {
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    padding: 20px 4px;
+    opacity: 0.6;
+  }
+  .backstage-stack {
+    position: relative;
+    display: flex;
+    gap: 4px;
+  }
+  .backstage-card {
+    width: 64px;
+    height: 90px;
+    cursor: default;
+    position: relative;
+  }
+  .backstage-card.paired {
+    opacity: 0.85;
+    transform: scale(0.92);
+    border-color: rgba(212,163,71,0.5);
+  }
+  .rounds-badge {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    background: var(--gold);
+    color: #1a0e08;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    letter-spacing: 0.05em;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    z-index: 2;
+  }
+
+  /* レスポンシブ */
+  @media (max-width: 600px) {
+    .card { width: 68px; height: 96px; }
+    .card.large { width: 92px; height: 130px; }
+    h1.logo { font-size: 22px; }
+    .start-screen h1 { font-size: 38px; }
+    .backstage-card { width: 52px; height: 73px; }
+    .backstage-grid { gap: 8px; }
+    .backstage-side { padding: 8px; }
+    .rounds-badge { font-size: 9px; padding: 1px 5px; }
+  }
+
+  /* ===== アニメーション ===== */
+  @keyframes flipIn {
+    0%   { transform: rotateY(90deg) scale(0.8); opacity: 0; }
+    100% { transform: rotateY(0deg)  scale(1);   opacity: 1; }
+  }
+  @keyframes clashPulse {
+    0%,100% { transform: scale(1);    opacity: 1; }
+    50%      { transform: scale(1.15); opacity: 0.7; }
+  }
+  @keyframes eventSlideIn {
+    0%   { transform: translateY(24px); opacity: 0; }
+    100% { transform: translateY(0);    opacity: 1; }
+  }
+  @keyframes awardBurst {
+    0%   { transform: scale(0.6); opacity: 0; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1);   opacity: 1; }
+  }
+  @keyframes fadeOut {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .anim-flip   { animation: flipIn     0.45s cubic-bezier(.4,0,.2,1) both; }
+  .anim-clash  { animation: clashPulse 0.5s ease-in-out infinite; }
+  .anim-slide  { animation: eventSlideIn 0.35s ease both; }
+  .anim-burst  { animation: awardBurst  0.5s cubic-bezier(.4,0,.2,1) both; }
+  .anim-fadeout{ animation: fadeOut     0.4s ease forwards; }
+
+  /* オープン画面 */
+  .open-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    padding: 24px 0 8px;
+  }
+  .open-cards {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    align-items: flex-end;
+  }
+  .open-card-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .open-player-label {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .open-badge {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    padding: 3px 10px;
+    border-radius: 12px;
+    margin-top: 4px;
+  }
+  .open-badge.eliminated { background: rgba(170,68,68,0.25); color: #f88; border: 1px solid #a44; }
+  .open-badge.winner     { background: rgba(212,163,71,0.2);  color: var(--gold-bright); border: 1px solid var(--gold); }
+
+  /* イベント通知 */
+  .event-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.82);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200;
+  }
+  .event-box {
+    text-align: center;
+    padding: 32px 40px;
+    border-radius: 12px;
+    max-width: 480px;
+    width: 90%;
+  }
+  .event-box.clash {
+    background: linear-gradient(180deg, #2a0808, #1a0404);
+    border: 2px solid #c44;
+    box-shadow: 0 0 60px rgba(200,68,68,0.5);
+  }
+  .event-box.effect {
+    background: linear-gradient(180deg, #1a1216, #0f0a0c);
+    border: 1px solid var(--gold);
+    box-shadow: 0 0 40px rgba(212,163,71,0.25);
+  }
+  .event-box.award {
+    background: linear-gradient(180deg, #1a1408, #0a0a04);
+    border: 2px solid var(--gold-bright);
+    box-shadow: 0 0 80px rgba(240,192,96,0.4);
+  }
+  .event-box.gambler-hit {
+    background: linear-gradient(180deg, #0a1a0a, #040f04);
+    border: 2px solid #6f6;
+    box-shadow: 0 0 60px rgba(100,220,100,0.35);
+  }
+  .event-box.gambler-miss {
+    background: linear-gradient(180deg, #1a0808, #0f0404);
+    border: 2px solid #f44;
+    box-shadow: 0 0 60px rgba(220,80,80,0.35);
+  }
+  .event-title {
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: 0.15em;
+    margin-bottom: 10px;
+  }
+  .event-title.clash-text { color: #f88; }
+  .event-title.gold-text  { color: var(--gold-bright); }
+  .event-title.green-text { color: #8f8; }
+  .event-title.red-text   { color: #f88; }
+  .event-desc {
+    font-size: 14px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    margin-top: 8px;
+  }
+  .event-cards {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+//==================================================================
+// Re:BID Digital - Local 2P Hotseat
+//==================================================================
+
+// --- カード定義 ---------------------------------------------------
+const ROLES = {
+  gambler:     { id: "gambler",     name: "ギャンブラー",     ja: "GAMBLER",     power: 1 },
+  coordinator: { id: "coordinator", name: "コーディネーター", ja: "COORDINATOR", power: 2 },
+  dealer:      { id: "dealer",      name: "ディーラー",       ja: "DEALER",      power: 3 },
+  president:   { id: "president",   name: "プレジデント",     ja: "PRESIDENT",   power: 4 },
+  journalist:  { id: "journalist",  name: "ジャーナリスト",   ja: "JOURNALIST",  power: 5 },
+  millionaire: { id: "millionaire", name: "ミリオネア",       ja: "MILLIONAIRE", power: 6 },
+};
+const ROLE_ORDER = ["gambler","coordinator","dealer","president","journalist","millionaire"];
+
+// 商品カードの初期セット（10枚）
+const PRODUCT_VALUES = [-3,-2,-1,1,2,3,4,5,6,7];
+
+// --- アニメーション・タイミング定数 ---------------------------------
+// 既存の挙動を維持するため、値はすべて変更前と同一。
+// 今後の演出調整はここを編集するだけで全体に反映される想定。
+const ANIM = {
+  // showEvent 系
+  defaultEventDuration: 1800, // ev.duration が未指定のときのフォールバック
+  fadeOutDuration: 400,       // showEvent のオーバーレイ消滅
+  // renderOpenScreen（カードフリップ演出）
+  openFlipP1Delay: 300, // P1のフリップ開始待ち
+  openFlipP2Delay: 900, // P2のフリップ開始待ち
+  openFlipHold: 500,    // フリップ後、次へ進むまでの待ち
+  openHoldAfter: 800,   // 両者オープン後、画面遷移までの間
+  openFadeOut: 400,     // オープン画面のフェードアウト
+  // イベント別 duration
+  evClash: 2000,
+  evGamblerMiss: 2000,
+  evGamblerHit: 2000,
+  evEffectCoordinator: 1600,
+  evEffectDealer: 1400,
+  evEffectJournalist: 1800,
+  evAward: 2500,
+  evAwardPush: 2000,
+  evNoAward: 1600,
+};
+
+// アセット画像のパス（assets/ フォルダ前提）
+function roleImg(playerIdx, roleId){
+  const color = playerIdx === 0 ? "yellow" : "purple";
+  const map = { gambler: "01", coordinator: "02", dealer: "03", president: "04", journalist: "05", millionaire: "06" };
+  return `assets/${color}${map[roleId]}.png`;
+}
+function roleBackImg(playerIdx){
+  const color = playerIdx === 0 ? "yellow" : "purple";
+  return `assets/${color}00.png`;
+}
+function productImg(value){
+  if (value > 0) return `assets/point0${value}.png`;
+  if (value < 0) return `assets/pointm${Math.abs(value)}.png`; // 贋作: pointm1.png, pointm2.png, pointm3.png
+  return `assets/point00.png`;
+}
+function productBackImg(){ return `assets/point00.png`; }
+
+// --- ゲーム状態 ---------------------------------------------------
+let state = null;
+let _eventTimer = null; // showEvent 内で使う setTimeout の ID（既存の暗黙グローバルを明示宣言）
+
+function newGame(){
+  // 山札を作成（シャッフル）
+  const deck = PRODUCT_VALUES.map((v,i)=>({ id:`p${i}`, baseValue:v, flipped:false }));
+  shuffle(deck);
+
+  state = {
+    phase: "start", // start | bidding | gambler_predict | reveal | resolve | dealer_choose | game_over | transition
+    round: 0,
+    deck,
+    stageProducts: [], // {id, baseValue, flipped, currentValue}
+    players: [
+      makePlayer(0, "PLAYER 1"),
+      makePlayer(1, "PLAYER 2"),
+    ],
+    currentBidder: 0,
+    log: [],
+    pending: null, // 一時的な状態（モーダル用）
+    transitionTo: null,
+    transitionMessage: "",
+  };
+}
+
+function makePlayer(idx, name){
+  return {
+    idx,
+    name,
+    hand: ROLE_ORDER.map(r => ({ id: r, ownerIdx: idx })),
+    backstage: [], // {role, roundsLeft, paired:[]} paired=ジャーナリストで一緒に待機させられたカード
+    collection: [], // {id, baseValue, flipped, currentValue}
+    submittedRoles: [], // このラウンドで伏せた役職カード(配列、プレジデント重ね対応)
+    pendingJournalistPair: [], // ジャーナリストで奪われたカードID一覧。finalize時に使用役職とペアで舞台裏入り
+    eliminated: false,
+    gamblerPrediction: null,
+    gamblerCorrect: null,
+  };
+}
+
+function shuffle(arr){
+  for (let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+}
+
+function log(msg, klass=""){
+  state.log.push({ msg, klass });
+  // 直近30件
+  if (state.log.length > 60) state.log.shift();
+}
+
+function currentValue(prod){
+  return prod.flipped ? -prod.baseValue : prod.baseValue;
+}
+
+function sumStage(){
+  return state.stageProducts.reduce((s,p)=> s + currentValue(p), 0);
+}
+
+//==================================================================
+// ラウンド進行ロジック
+//==================================================================
+
+function startNewRound(){
+  // 各プレイヤーの舞台裏カードのカウントを進める（=ラウンド開始時に1減らす）
+  state.players.forEach(p => {
+    const returning = [];
+    p.backstage = p.backstage.filter(item => {
+      item.roundsLeft -= 1;
+      if (item.roundsLeft <= 0){
+        returning.push(item.role);
+        if (item.paired) item.paired.forEach(r => returning.push(r));
+        return false;
+      }
+      return true;
+    });
+    returning.forEach(role => {
+      p.hand.push({ id: role, ownerIdx: p.idx });
+      log(`${p.name}の${ROLES[role].name}が手札に戻った`);
+    });
+    // 手札をパワー昇順（1→6）に整列
+    p.hand.sort((a, b) => ROLES[a.id].power - ROLES[b.id].power);
+    p.submittedRoles = [];
+    p.pendingJournalistPair = [];
+    p.eliminated = false;
+    p.gamblerPrediction = null;
+    p.gamblerCorrect = null;
+  });
+
+  // 山札から商品1枚めくって場に出す
+  if (state.deck.length === 0){
+    endGame();
+    return;
+  }
+  const product = state.deck.pop();
+  state.stageProducts.push(product);
+  state.round += 1;
+  log(`--- Round ${state.round} ---`, "round");
+  log(`場に「${product.baseValue > 0 ? "+" : ""}${product.baseValue}」が登場（場の合計: ${sumStage() >= 0 ? "+" : ""}${sumStage()}）`);
+
+  // 手札が空のプレイヤーがいたら終了
+  if (state.players.some(p => p.hand.length === 0)){
+    log("手札がなくなったプレイヤーがいるためゲーム終了", "win");
+    endGame();
+    return;
+  }
+
+  // 入札フェーズ：P1から
+  state.phase = "transition";
+  state.currentBidder = 0;
+  state.transitionTo = "bidding";
+  state.transitionMessage = `${state.players[0].name} の入札ターン`;
+  render();
+}
+
+function startBidding(){
+  state.phase = "bidding";
+  render();
+}
+
+function submitBid(playerIdx, roleIds){
+  // roleIds: [プレジデント以外なら1枚、プレジデント+重ねなら2枚]
+  const p = state.players[playerIdx];
+  roleIds.forEach(r => {
+    const idx = p.hand.findIndex(c => c.id === r);
+    if (idx >= 0) p.hand.splice(idx,1);
+  });
+  p.submittedRoles = roleIds;
+  log(`${p.name} が役職を伏せた`);
+
+  if (playerIdx === 0){
+    // 次はP2
+    state.phase = "transition";
+    state.currentBidder = 1;
+    state.transitionTo = "bidding";
+    state.transitionMessage = `${state.players[1].name} の入札ターン`;
+    render();
+  } else {
+    // 両者出し終わった → ギャンブラー処理
+    handleGamblerPhase();
+  }
+}
+
+function handleGamblerPhase(){
+  // 両者がギャンブラーを出していたら両者脱落（ギャンブラー的中処理なし）
+  const p1HasGambler = state.players[0].submittedRoles.includes("gambler");
+  const p2HasGambler = state.players[1].submittedRoles.includes("gambler");
+
+  if (p1HasGambler && p2HasGambler){
+    log("両者ギャンブラー！両者脱落", "round");
+    state.players[0].eliminated = true;
+    state.players[1].eliminated = true;
+    proceedToReveal();
+    return;
+  }
+
+  // どちらか1人がギャンブラーを出していたら予想モーダル
+  const gamblerPlayerIdx = p1HasGambler ? 0 : (p2HasGambler ? 1 : -1);
+  if (gamblerPlayerIdx >= 0){
+    state.phase = "transition";
+    state.currentBidder = gamblerPlayerIdx;
+    state.transitionTo = "gambler_predict";
+    state.transitionMessage = `${state.players[gamblerPlayerIdx].name} のギャンブラー予想ターン`;
+    render();
+  } else {
+    proceedToReveal();
+  }
+}
+
+function submitGamblerPrediction(predictedRole){
+  const idx = state.currentBidder;
+  const opponentIdx = 1 - idx;
+  const opponent = state.players[opponentIdx];
+  // 的中判定は主役職（submittedRoles[0]）のみ。
+  // プレジデントに重ねたサブカード（submittedRoles[1]）は判定対象外。
+  const correct = opponent.submittedRoles[0] === predictedRole;
+
+  state.players[idx].gamblerPrediction = predictedRole;
+  state.players[idx].gamblerCorrect = correct;
+
+  log(`${state.players[idx].name} は相手を「${ROLES[predictedRole].name}」と予想 → ${correct ? "的中！" : "外れ"}`, correct ? "win" : "");
+  proceedToReveal();
+}
+
+// ===== アニメーション付きオープン〜解決フロー =====
+
+function showEvent(ev, done){
+  const el = document.createElement("div");
+  el.className = "event-overlay";
+  el.innerHTML = buildEventHTML(ev);
+  document.body.appendChild(el);
+  // アニメIN
+  const box = el.querySelector(".event-box");
+  if (box) box.classList.add("anim-slide");
+
+  const dur = ev.duration || ANIM.defaultEventDuration;
+  _eventTimer = setTimeout(()=>{
+    el.classList.add("anim-fadeout");
+    setTimeout(()=>{ el.remove(); done(); }, ANIM.fadeOutDuration);
+  }, dur);
+}
+
+function buildEventHTML(ev){
+  switch(ev.type){
+    case "clash":
+      return `<div class="event-box clash">
+        <div class="event-title clash-text anim-clash">⚡ CLASH ⚡</div>
+        <div class="event-desc">同じ役職！<br>両者脱落</div>
+      </div>`;
+
+    case "gambler_miss":
+      return `<div class="event-box gambler-miss">
+        <div class="event-title red-text">予想 外れ</div>
+        <div class="event-desc">${ev.name} のギャンブラー失敗${ev.penalty ? `<br>贋作 ${ev.penalty}枚 を押し付けられた` : ""}</div>
+      </div>`;
+
+    case "gambler_hit":
+      return `<div class="event-box gambler-hit">
+        <div class="event-title green-text">🎯 的中！</div>
+        <div class="event-desc">${ev.name} のギャンブラーが「${ev.predicted}」を当てた！</div>
+      </div>`;
+
+    case "effect":{
+      const icons = { coordinator:"♻", dealer:"🔑", journalist:"📷", president:"", millionaire:"" };
+      return `<div class="event-box effect">
+        <div class="event-title gold-text">${icons[ev.role]||""} ${ev.roleName}</div>
+        <div class="event-desc">${ev.playerName}<br>${ev.desc}</div>
+      </div>`;
+    }
+
+    case "award":
+      return `<div class="event-box award anim-burst">
+        <div class="event-title gold-text">${ev.winner} 落札！</div>
+        <div class="event-desc">${ev.desc}</div>
+        <div class="event-cards">${ev.cardsHtml}</div>
+      </div>`;
+
+    case "award_push":
+      return `<div class="event-box gambler-miss">
+        <div class="event-title red-text">押し付け</div>
+        <div class="event-desc">${ev.loser} に贋作が押し付けられた</div>
+        <div class="event-cards">${ev.cardsHtml}</div>
+      </div>`;
+
+    case "no_award":
+      return `<div class="event-box effect">
+        <div class="event-title" style="color:var(--text-dim);">落札なし</div>
+        <div class="event-desc">商品は次ラウンドへ持ち越し</div>
+      </div>`;
+
+    default:
+      return `<div class="event-box effect"><div class="event-desc">${ev.msg||""}</div></div>`;
+  }
+}
+
+function stageCardsMiniHtml(cards){
+  return cards.map(p => {
+    const v = currentValue(p);
+    const rot = p.flipped ? "transform:rotate(180deg);" : "";
+    return `<div class="card backstage-card" style="${rot}">${productInner(p)}</div>`;
+  }).join("");
+}
+
+function proceedToReveal(){
+  state.phase = "reveal";
+  // オープン画面を表示してからプレジデント追加フェーズ（必要なら）→ 解決
+  renderOpenScreen(()=> handlePresidentExtraPhase());
+}
+
+// オープン後のプレジデント追加カード選択フェーズ
+function handlePresidentExtraPhase(){
+  // 被り判定を先に行う（resolveRoundAnimatedより前に実施）
+  const p1Main = state.players[0].submittedRoles[0];
+  const p2Main = state.players[1].submittedRoles[0];
+  const clashed = p1Main && p2Main && p1Main === p2Main &&
+                  !(state.players[0].eliminated && state.players[1].eliminated);
+  if (clashed){
+    log(`役職が被った（${ROLES[p1Main].name}）→ 両者脱落`, "round");
+    state.players[0].eliminated = true;
+    state.players[1].eliminated = true;
+  }
+
+  // 脱落していないプレジデント使用者を探す
+  const presidentPlayers = state.players.filter(p =>
+    p.submittedRoles[0] === "president" && !p.eliminated
+  );
+
+  // プレジデントを出したプレイヤーがいない or 全員脱落（被り含む）→ すぐに解決
+  if (presidentPlayers.length === 0){
+    resolveRoundAnimated();
+    return;
+  }
+
+  // プレジデントを出したプレイヤー順に追加カードを選択させる
+  // （複数の場合は1人ずつ処理するためキューで管理）
+  state.presidentQueue = presidentPlayers.map(p => p.idx);
+  processNextPresidentExtra();
+}
+
+function processNextPresidentExtra(){
+  if (!state.presidentQueue || state.presidentQueue.length === 0){
+    // 全員選択完了 → 解決へ
+    state.presidentQueue = null;
+    resolveRoundAnimated();
+    return;
+  }
+  const playerIdx = state.presidentQueue.shift();
+  const player = state.players[playerIdx];
+
+  // 手札にパワー3以下のカードがあるか確認
+  const eligible = player.hand.filter(c => ROLES[c.id].power <= 3);
+  if (eligible.length === 0){
+    // 重ねられるカードがない → スキップ
+    log(`${player.name} のプレジデント: 重ねられるカード（パワー3以下）が手札になかった`);
+    processNextPresidentExtra();
+    return;
+  }
+
+  // 追加カード選択フェーズへ
+  state.phase = "president_extra";
+  state.pending = { presidentPlayerIdx: playerIdx };
+  render();
+}
+
+// カードオープン画面：P1→P2の順でフリップ表示
+function renderOpenScreen(callback){
+  const app = document.getElementById("app");
+  app.innerHTML = buildBaseForReveal();
+
+  const overlay = document.createElement("div");
+  overlay.className = "event-overlay";
+  overlay.style.background = "rgba(0,0,0,0.88)";
+  overlay.innerHTML = `
+    <div class="open-stage">
+      <div style="font-size:13px;letter-spacing:0.3em;color:var(--gold);margin-bottom:4px;">— OPEN —</div>
+      <div class="open-cards">
+        ${[0,1].map(i => {
+          const p = state.players[i];
+          const klass = i === 0 ? "p1" : "p2";
+          const nameColor = i === 0 ? "var(--gold-bright)" : "#b09cd0";
+          const roles = p.submittedRoles;
+          return `
+            <div class="open-card-slot" id="open-slot-${i}">
+              <div style="font-size:11px;letter-spacing:0.2em;color:${nameColor};">${p.name}</div>
+              <div class="card large face-down" id="open-card-${i}">
+                <img src="${roleBackImg(i)}" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover;">
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  // P1フリップ → P2フリップ → コールバック
+  function flipCard(idx, then){
+    setTimeout(()=>{
+      const slot = overlay.querySelector(`#open-card-${idx}`);
+      if (!slot) { then(); return; }
+      const p = state.players[idx];
+      const roles = p.submittedRoles;
+      if (!roles || roles.length === 0){ then(); return; }
+      const mainRole = roles[0];
+      // フリップ
+      slot.classList.remove("face-down");
+      slot.classList.add("anim-flip");
+      slot.innerHTML = cardInner({id: mainRole, ownerIdx: idx}, idx, false);
+      // サブカードはオープン後に選択するため、ここでは表示しない
+      setTimeout(then, ANIM.openFlipHold);
+    }, idx === 0 ? ANIM.openFlipP1Delay : ANIM.openFlipP2Delay);
+  }
+
+  flipCard(0, ()=>{
+    flipCard(1, ()=>{
+      setTimeout(()=>{
+        overlay.classList.add("anim-fadeout");
+        setTimeout(()=>{ overlay.remove(); callback(); }, ANIM.openFadeOut);
+      }, ANIM.openHoldAfter);
+    });
+  });
+}
+
+function buildBaseForReveal(){
+  return `
+    <h1 class="logo">Re:BID</h1>
+    ${renderStage()}
+    ${renderPlayerInfoRow(0)}
+    ${renderLog()}
+  `;
+}
+
+// showEventチェーンで全イベントを順番に表示
+function resolveRoundAnimated(){
+
+  // 被り判定
+  const p1Main = state.players[0].submittedRoles[0];
+  const p2Main = state.players[1].submittedRoles[0];
+  const clashed = p1Main && p2Main && p1Main === p2Main &&
+                  !(state.players[0].eliminated && state.players[1].eliminated);
+  if (clashed){
+    log(`役職が被った（${ROLES[p1Main].name}）→ 両者脱落`, "round");
+    state.players[0].eliminated = true;
+    state.players[1].eliminated = true;
+  }
+
+  // ギャンブラー外れ
+  const gamblerMissed = state.players.find(p => p.gamblerCorrect === false);
+  if (gamblerMissed){
+    gamblerMissed.eliminated = true;
+    const missNeg = state.stageProducts.filter(p => currentValue(p) < 0);
+    missNeg.forEach(p => {
+      gamblerMissed.collection.push(p);
+      state.stageProducts = state.stageProducts.filter(s => s.id !== p.id);
+    });
+    log(`${gamblerMissed.name} のギャンブラー予想外れにより脱落${missNeg.length>0?`（贋作${missNeg.length}枚）`:""}`);
+  }
+
+  // ギャンブラー的中
+  const gamblerHit = state.players.find(p => p.gamblerCorrect === true);
+  if (gamblerHit){
+    const opponent = state.players.find(p => p.idx !== gamblerHit.idx);
+    const positives = state.stageProducts.filter(p => currentValue(p) >= 0);
+    const negatives = state.stageProducts.filter(p => currentValue(p) < 0);
+    positives.forEach(p => gamblerHit.collection.push(p));
+    negatives.forEach(p => opponent.collection.push(p));
+    const cardsHtml = stageCardsMiniHtml(positives);
+    log(`${gamblerHit.name} がギャンブラー的中で商品を獲得${negatives.length>0?`（贋作${negatives.length}枚は相手へ）`:""}`, "win");
+    state.stageProducts = [];
+
+    // イベントチェーン: 的中 → (awardsあれば)落札 → finalize
+    const chain = []
+    if (clashed) chain.push({ type:"clash", duration:ANIM.evClash });
+    if (gamblerMissed) chain.push({ type:"gambler_miss", name:gamblerMissed.name, penalty:missNeg ? missNeg.length : 0, duration:ANIM.evGamblerMiss });
+    chain.push({ type:"gambler_hit", name:gamblerHit.name, predicted:ROLES[gamblerHit.gamblerPrediction].name, duration:ANIM.evGamblerHit });
+    if (positives.length > 0) chain.push({ type:"award", winner:gamblerHit.name, desc:"ギャンブラー的中ボーナス", cardsHtml, duration:ANIM.evAward });
+    runChain(chain, ()=> finalizeRound());
+    return;
+  }
+
+  // 効果発動 → 落札 → finalize
+  const survivors = state.players.filter(p => !p.eliminated && p.submittedRoles.length > 0);
+  const effectQueue = survivors
+    .map(p => ({ playerIdx: p.idx, role: p.submittedRoles[0] }))
+    .sort((a,b)=> ROLES[a.role].power - ROLES[b.role].power);
+
+  // 事前イベント（clash, gambler_miss）をチェーンに入れてから効果へ
+  const preChain = [];
+  if (clashed) preChain.push({ type:"clash", duration:ANIM.evClash });
+  if (gamblerMissed) preChain.push({ type:"gambler_miss", name:gamblerMissed.name, penalty:0, duration:ANIM.evGamblerMiss });
+
+  runChain(preChain, ()=>{
+    runEffectsAnimated(effectQueue, 0, ()=>{
+      computeAwardAnimated(()=> finalizeRound());
+    });
+  });
+}
+
+// イベント配列を順番にshowEventで表示し、全部終わったらdoneを呼ぶ
+function runChain(events, done){
+  if (events.length === 0){ done(); return; }
+  const ev = events.shift();
+  showEvent(ev, ()=> runChain(events, done));
+}
+
+
+function runEffectsAnimated(queue, idx, done){
+  if (idx >= queue.length){ done(); return; }
+  const item = queue[idx];
+  const player = state.players[item.playerIdx];
+  if (player.eliminated){ runEffectsAnimated(queue, idx+1, done); return; }
+
+  const next = ()=> runEffectsAnimated(queue, idx+1, done);
+
+  switch(item.role){
+    case "coordinator":{
+      const returned = [];
+      player.backstage.forEach(item2 => {
+        returned.push(item2.role);
+        if (item2.paired) item2.paired.forEach(r => returned.push(r));
+      });
+      player.backstage = [];
+      returned.forEach(r => player.hand.push({ id: r, ownerIdx: player.idx }));
+      player.hand.sort((a,b)=> ROLES[a.id].power - ROLES[b.id].power);
+      const desc = returned.length > 0 ? `舞台裏の${returned.length}枚を手札に回収` : "舞台裏は空だった";
+      log(`${player.name} のコーディネーター発動: ${desc}`);
+      showEvent(
+        { type:"effect", role:"coordinator", roleName:"コーディネーター", playerName:player.name, desc, duration:ANIM.evEffectCoordinator },
+        ()=> next()
+      );
+      break;
+    }
+    case "dealer":{
+      // ディーラー通知を先に表示し、終わったらモーダルを出す
+      showEvent(
+        { type:"effect", role:"dealer", roleName:"ディーラー", playerName:player.name, desc:"商品カードを反転させる", duration:ANIM.evEffectDealer },
+        ()=> effectDealer(player, ()=> runEffectsAnimated(queue, idx+1, done))
+      );
+      break;
+    }
+    case "journalist":{
+      const opponent = state.players[1 - player.idx];
+      let desc = "相手の手札は空だった";
+      if (opponent.hand.length > 0){
+        const randIdx = Math.floor(Math.random() * opponent.hand.length);
+        const stolen = opponent.hand.splice(randIdx, 1)[0];
+        if (!opponent.pendingJournalistPair) opponent.pendingJournalistPair = [];
+        opponent.pendingJournalistPair.push(stolen.id);
+        desc = `相手の「${ROLES[stolen.id].name}」を暴露、2ラウンド拘束`;
+        log(`${player.name} のジャーナリスト発動: ${desc}`);
+      }
+      showEvent(
+        { type:"effect", role:"journalist", roleName:"ジャーナリスト", playerName:player.name, desc, duration:ANIM.evEffectJournalist },
+        ()=> next()
+      );
+      break;
+    }
+    default:
+      next();
+  }
+}
+
+function computeAwardAnimated(done){
+  const survivors = state.players.filter(p => !p.eliminated);
+  if (survivors.length === 0){
+    log("生存者なし → 商品は次ラウンドに持ち越し", "round");
+    showEvent({ type:"no_award", duration:ANIM.evNoAward }, done);
+    return;
+  }
+  if (state.stageProducts.length === 0){ done(); return; }
+
+  function totalPower(player){
+    if (player.submittedRoles.length === 0) return 0;
+    let pw = ROLES[player.submittedRoles[0]].power;
+    if (player.submittedRoles[0] === "president" && player.submittedRoles[1]){
+      pw += ROLES[player.submittedRoles[1]].power;
+    }
+    return pw;
+  }
+
+  const positives = state.stageProducts.filter(p => currentValue(p) >= 0);
+  const negatives = state.stageProducts.filter(p => currentValue(p) < 0);
+  const mixed = positives.length > 0 && negatives.length > 0;
+  const sum = sumStage();
+
+  survivors.sort((a,b)=> totalPower(b) - totalPower(a));
+  const strongest = survivors[0];
+  const weakest = survivors[survivors.length - 1];
+
+  const awardChain = [];
+  if (mixed){
+    positives.forEach(p => strongest.collection.push(p));
+    negatives.forEach(p => weakest.collection.push(p));
+    log(`${strongest.name} がプラス商品を獲得、${weakest.name} にマイナス商品が押し付けられた`, "win");
+    awardChain.push({ type:"award", winner:strongest.name, desc:`+カードを落札`, cardsHtml:stageCardsMiniHtml(positives), duration:ANIM.evAward });
+    if (weakest !== strongest){
+      awardChain.push({ type:"award_push", loser:weakest.name, cardsHtml:stageCardsMiniHtml(negatives), duration:ANIM.evAwardPush });
+    }
+  } else if (sum >= 0){
+    state.stageProducts.forEach(p => strongest.collection.push(p));
+    log(`${strongest.name} が場の商品（合計+${sum}）を獲得`, "win");
+    awardChain.push({ type:"award", winner:strongest.name, desc:`合計 +${sum}`, cardsHtml:stageCardsMiniHtml([...state.stageProducts]), duration:ANIM.evAward });
+  } else {
+    state.stageProducts.forEach(p => weakest.collection.push(p));
+    log(`${weakest.name} に場の商品（合計${sum}）が押し付けられた`, "win");
+    awardChain.push({ type:"award_push", loser:weakest.name, cardsHtml:stageCardsMiniHtml([...state.stageProducts]), duration:ANIM.evAwardPush });
+  }
+  state.stageProducts = [];
+  runChain(awardChain, done);
+}
+
+function finalizeRound(){
+  // 使った役職カードを舞台裏で2ラウンド待機
+  state.players.forEach(p => {
+    if (p.submittedRoles.length > 0){
+      // 脱落者でも舞台裏入り（カードは消費される）
+      const main = p.submittedRoles[0];
+      const paired = p.submittedRoles.slice(1);
+      // ジャーナリストで奪われたカードがあれば、使用役職と同じスロットで一緒に待機
+      if (p.pendingJournalistPair && p.pendingJournalistPair.length > 0){
+        paired.push(...p.pendingJournalistPair);
+      }
+      p.backstage.push({ role: main, roundsLeft: 3, paired });
+    } else if (p.pendingJournalistPair && p.pendingJournalistPair.length > 0){
+      // フォールバック: 使用役職がないのに奪取カードだけある異常ケース → 単独で2R待機
+      p.pendingJournalistPair.forEach(r => {
+        p.backstage.push({ role: r, roundsLeft: 3, paired: [] });
+      });
+    }
+    p.pendingJournalistPair = [];
+    p.submittedRoles = [];
+  });
+  // ゲーム終了判定
+  if (state.deck.length === 0 && state.stageProducts.length === 0){
+    endGame();
+    return;
+  }
+  if (state.players.some(p => p.hand.length === 0 && p.backstage.length === 0)){
+    endGame();
+    return;
+  }
+  // 次のラウンドへ
+  startNewRound();
+}
+
+function endGame(){
+  state.phase = "game_over";
+  render();
+}
+
+//==================================================================
+// レンダリング
+//==================================================================
+const app = document.getElementById("app");
+
+function render(){
+  if (!state){
+    renderStart();
+    return;
+  }
+  switch(state.phase){
+    case "start": renderStart(); break;
+    case "transition": renderTransition(); break;
+    case "bidding": renderBidding(); break;
+    case "gambler_predict": renderGamblerPredict(); break;
+    case "reveal": renderReveal(); break;
+    case "president_extra": renderPresidentExtra(); break;
+    case "dealer_choose": renderDealerChoose(); break;
+    case "game_over": renderGameOver(); break;
+    default: renderBoard();
+  }
+}
+
+function renderStart(){
+  app.innerHTML = `
+    <div class="start-screen">
+      <h1>→ Re:BID ←</h1>
+      <div class="tagline">- 再入札 -</div>
+      <p style="color:var(--text); max-width: 500px; margin: 0 auto 24px; line-height: 1.8; font-size: 14px;">
+        オークションは盤面戦術がつきもの！<br>
+        様々な特殊スキルをもつ実力者達とオークションに挑み、<br>
+        価値ある商品を誰よりも多く集めましょう！
+      </p>
+      <button class="primary" onclick="actionStart()">ゲーム開始</button>
+      <div class="credits">
+        ローカル2人対戦版（ホットシート方式）<br>
+        制作 : アメノヌボコ
+      </div>
+    </div>
+  `;
+}
+
+function actionStart(){
+  newGame();
+  startNewRound();
+}
+
+function renderTransition(){
+  app.innerHTML = baseLayout() + `
+    <div class="overlay">
+      <div class="modal">
+        <h2>${state.transitionMessage}</h2>
+        <p>相手から画面を隠して、準備ができたらボタンを押してください。</p>
+        <div class="modal-buttons">
+          <button class="primary" onclick="actionTransitionContinue()">準備OK</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function actionTransitionContinue(){
+  const target = state.transitionTo;
+  state.transitionTo = null;
+  state.phase = target;
+  render();
+}
+
+function renderBidding(){
+  const playerIdx = state.currentBidder;
+  const player = state.players[playerIdx];
+
+  // 入札画面：自分の手札を見て、1枚伏せて出す
+  const selectedMain = state.pending?.selectedMain || null;
+
+  const handHtml = player.hand.map((c, i) => {
+    const isSelected = c.id === selectedMain;
+    return `<div class="card large selectable ${isSelected ? "selected" : ""}"
+              onclick="actionSelectBidCard(${playerIdx}, '${c.id}', ${i})">
+              ${cardInner(c, playerIdx, false)}
+            </div>`;
+  }).join("");
+
+  let actionPanel = "";
+  if (selectedMain === "president"){
+    actionPanel = `<p style="margin-top:12px;color:var(--gold);">プレジデント（パワー4）を伏せて出します。<br><span style="font-size:12px;color:var(--text-dim);">※ 重ねるカードはオープン後に選択します</span></p>
+      <button class="primary" onclick="actionConfirmBid()">伏せて出す</button>
+      <button onclick="actionClearBid()">選び直す</button>`;
+  } else if (selectedMain){
+    actionPanel = `<p style="margin-top:12px;color:var(--gold);">${ROLES[selectedMain].name}（パワー${ROLES[selectedMain].power}）を伏せて出します</p>
+      <button class="primary" onclick="actionConfirmBid()">伏せて出す</button>
+      <button onclick="actionClearBid()">選び直す</button>`;
+  } else {
+    actionPanel = `<p style="margin-top:12px;color:var(--text-dim);">手札から伏せる役職カードを1枚選んでください</p>`;
+  }
+
+  app.innerHTML = `
+    <h1 class="logo">Re:BID</h1>
+    ${renderStage()}
+    ${renderPlayerInfoRow(playerIdx)}
+    <div class="player-zone ${playerIdx === 0 ? "p1" : "p2"} active">
+      <div class="player-header">
+        <div class="player-name ${playerIdx === 0 ? "p1" : "p2"}">${player.name} の入札</div>
+
+      </div>
+      <div class="zone-label">手札</div>
+      <div class="card-row">${handHtml}</div>
+      <div style="margin-top: 14px;">${actionPanel}</div>
+    </div>
+    ${renderLog()}
+  `;
+}
+
+function actionSelectBidCard(playerIdx, roleId, handIdx){
+  if (!state.pending) state.pending = {};
+  if (state.pending.selectedMain === roleId){
+    // 同じカードをタップ → 取り消し
+    state.pending = {};
+  } else {
+    // 新しいカードを選択
+    state.pending = { selectedMain: roleId };
+  }
+  render();
+}
+
+function actionClearBid(){ state.pending = {}; render(); }
+
+function actionConfirmBid(){
+  const sel = state.pending;
+  if (!sel || !sel.selectedMain) return;
+  // プレジデントも含め、常に1枚のみで登録（重ねはオープン後に選択）
+  const roles = [sel.selectedMain];
+  state.pending = null;
+  submitBid(state.currentBidder, roles);
+}
+
+function renderGamblerPredict(){
+  const playerIdx = state.currentBidder;
+  const opponentIdx = 1 - playerIdx;
+  const player = state.players[playerIdx];
+  const opponent = state.players[opponentIdx];
+
+  // 舞台裏にあるカードはグレーアウト
+  const opponentBackstageIds = new Set(opponent.backstage.flatMap(b => [b.role, ...(b.paired||[])]));
+
+  app.innerHTML = baseLayout() + `
+    <div class="overlay">
+      <div class="modal" style="max-width:580px;">
+        <h2>${player.name} ギャンブラー予想</h2>
+        <p style="margin-bottom:16px;">相手が伏せている役職を選んでください。<br><span style="color:var(--gold);font-size:12px;">✦ 的中 → 商品獲得 &nbsp;／&nbsp; 外れ → 脱落</span></p>
+        <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-bottom:20px;">
+          ${ROLE_ORDER.map(r => {
+            const inBackstage = opponentBackstageIds.has(r);
+            const isSelectable = !inBackstage;
+            const color = opponentIdx === 0 ? "var(--yellow)" : "#b09cd0";
+            const path = roleImg(opponentIdx, r);
+            const fbClass = opponentIdx === 0 ? "p1" : "p2";
+            const fallback = `<div class=&quot;card-fallback role ${fbClass}&quot;><div class=&quot;name&quot;>${ROLES[r].ja}</div><div class=&quot;power&quot;>${ROLES[r].power}</div></div>`;
+            return `
+              <div style="display:flex; flex-direction:column; align-items:center; gap:6px; cursor:${isSelectable ? "pointer" : "not-allowed"};"
+                   onclick="${isSelectable ? `actionPredict('${r}')` : ""}">
+                <div class="card large ${isSelectable ? "selectable" : "disabled"}"
+                     style="${inBackstage ? "filter:grayscale(1) brightness(0.4);" : ""}">
+                  <img src="${path}"
+                       onerror="this.style.display='none';this.parentElement.innerHTML='${fallback}';"
+                       alt="${ROLES[r].name}">
+                </div>
+                <div style="font-size:11px; color:${isSelectable ? color : "var(--text-dim)"}; letter-spacing:0.1em;">
+                  ${ROLES[r].name}
+                </div>
+                ${inBackstage ? `<div style="font-size:9px;color:var(--text-dim);letter-spacing:0.08em;">舞台裏</div>` : ""}
+              </div>
+            `;
+          }).join("")}
+        </div>
+        <div style="border-top:1px dashed rgba(212,163,71,0.2); padding-top:14px;">
+          <button onclick="showBackstagePopup()" style="font-size:12px; padding:7px 20px; letter-spacing:0.15em; opacity:0.75;">
+            🎭 舞台裏を確認
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function showBackstagePopup(){
+  // 既存のポップアップがあれば除去
+  const old = document.getElementById("backstage-popup");
+  if (old) { old.remove(); return; }
+
+  const popup = document.createElement("div");
+  popup.id = "backstage-popup";
+  popup.style.cssText = `
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.75);
+    backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center;
+    z-index:300; padding:20px;
+  `;
+  popup.innerHTML = `
+    <div style="
+      background:linear-gradient(180deg,#1a1216,#0f0a0c);
+      border:1px solid var(--gold);
+      border-radius:10px;
+      padding:24px 20px;
+      max-width:500px; width:100%;
+      box-shadow:0 0 60px rgba(212,163,71,0.25);
+    ">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+        <div style="font-size:16px;color:var(--gold);letter-spacing:0.12em;font-weight:400;">🎭 舞台裏</div>
+        <button onclick="document.getElementById('backstage-popup').remove()"
+                style="padding:4px 14px;font-size:12px;opacity:0.7;">✕ 閉じる</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        ${[0,1].map(idx => {
+          const p = state.players[idx];
+          const klass = idx === 0 ? "p1" : "p2";
+          const borderColor = idx === 0 ? "rgba(196,131,26,0.4)" : "rgba(107,45,138,0.5)";
+          return `
+            <div style="
+              padding:10px 12px;
+              border-radius:6px;
+              background:rgba(0,0,0,0.3);
+              border:1px solid ${borderColor};
+            ">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:6px;border-bottom:1px dashed rgba(212,163,71,0.15);">
+                <span class="player-name ${klass}" style="font-size:13px;">${p.name}</span>
+                <span style="font-size:10px;color:var(--text-dim);">待機中 ${p.backstage.length}枚</span>
+              </div>
+              ${buildBackstageHtml(p, idx)}
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+  // 背景クリックで閉じる
+  popup.addEventListener("click", e => { if (e.target === popup) popup.remove(); });
+  document.body.appendChild(popup);
+}
+
+function actionPredict(role){ submitGamblerPrediction(role); }
+
+function renderReveal(){
+  app.innerHTML = baseLayout() + `
+    <div class="overlay">
+      <div class="modal">
+        <h2>オープン！</h2>
+        <p>${[0,1].map(i => {
+          const p = state.players[i];
+          if (p.submittedRoles.length === 0) return `${p.name}: 提出なし`;
+          const main = ROLES[p.submittedRoles[0]];
+          let txt = `${p.name}: <strong style="color:var(--gold-bright);">${main.name}（${main.power}）</strong>`;
+          if (p.submittedRoles[1]) txt += ` + ${ROLES[p.submittedRoles[1]].name}（+${ROLES[p.submittedRoles[1]].power}）`;
+          if (p.eliminated) txt += ` <span class="result-badge eliminated">脱落</span>`;
+          return txt;
+        }).join("<br>")}</p>
+        <p style="font-size:12px;color:var(--text-dim);">効果を発動中...</p>
+      </div>
+    </div>
+  `;
+}
+
+function renderDealerChoose(){
+  const pending = state.pending;
+  const player = state.players[pending.playerIdx];
+  const opponentIdx = 1 - pending.playerIdx;
+  const opponent = state.players[opponentIdx];
+
+  // eligible は { prod, playerIdx } の配列
+  const ownEntries = pending.eligible.filter(e => e.playerIdx === pending.playerIdx);
+  const oppEntries = pending.eligible.filter(e => e.playerIdx === opponentIdx);
+
+  function cardHtml(entry){
+    const prod = entry.prod;
+    const rotateStyle = prod.flipped ? "transform:rotate(180deg);" : "";
+    return `
+      <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+        <div class="card selectable" style="${rotateStyle}" onclick="actionDealerPick('${prod.id}')">
+          ${productInner(prod)}
+        </div>
+        <span style="font-size:10px; color:var(--text-dim);">${currentValue(prod) >= 0 ? "+" : ""}${currentValue(prod)}</span>
+      </div>
+    `;
+  }
+
+  app.innerHTML = baseLayout() + `
+    <div class="overlay">
+      <div class="modal" style="max-width:640px;">
+        <h2>${player.name} ディーラー効果</h2>
+        <p>反転させる商品カードを1枚選んでください（贋作は選べません）。</p>
+        ${ownEntries.length > 0 ? `
+          <div style="margin-top:16px; text-align:left;">
+            <div style="font-size:11px; letter-spacing:0.2em; color:var(--gold); margin-bottom:8px;">▸ 自分のコレクション</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">${ownEntries.map(cardHtml).join("")}</div>
+          </div>
+        ` : ""}
+        ${oppEntries.length > 0 ? `
+          <div style="margin-top:16px; text-align:left;">
+            <div style="font-size:11px; letter-spacing:0.2em; color:#b09cd0; margin-bottom:8px;">▸ 相手（${opponent.name}）のコレクション</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">${oppEntries.map(cardHtml).join("")}</div>
+          </div>
+        ` : ""}
+        <div style="margin-top: 18px;">
+          <button onclick="actionDealerSkip()">反転しない</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function actionDealerPick(prodId){ effectDealerApply(prodId, false); }
+function actionDealerSkip(){ effectDealerApply(null, true); }
+
+// ===== プレジデント追加カード選択フェーズ =====
+function renderPresidentExtra(){
+  const playerIdx = state.pending.presidentPlayerIdx;
+  const player = state.players[playerIdx];
+  const selectedExtra = state.pending.selectedExtra || null;
+
+  // 手札からパワー3以下のカードを選択肢として表示
+  const eligibleCards = player.hand.filter(c => ROLES[c.id].power <= 3);
+
+  const cardHtml = eligibleCards.map(c => {
+    const isSelected = c.id === selectedExtra;
+    return `<div class="card large selectable ${isSelected ? "selected" : ""}"
+              onclick="actionPresidentSelectExtra('${c.id}')">
+              ${cardInner(c, playerIdx, false)}
+            </div>`;
+  }).join("");
+
+  const confirmBtn = selectedExtra
+    ? `<button class="primary" onclick="actionPresidentConfirmExtra()">プレジデント + ${ROLES[selectedExtra].name}（パワー${4 + ROLES[selectedExtra].power}）で決定</button>
+       <button onclick="actionPresidentSelectExtra(null)">選び直す</button>`
+    : `<button onclick="actionPresidentSkipExtra()">重ねずに出す（パワー4のまま）</button>`;
+
+  app.innerHTML = `
+    <h1 class="logo">Re:BID</h1>
+    ${renderStage()}
+    ${renderPlayerInfoRow(playerIdx)}
+    <div class="player-zone ${playerIdx === 0 ? "p1" : "p2"} active">
+      <div class="player-header">
+        <div class="player-name ${playerIdx === 0 ? "p1" : "p2"}">${player.name} — プレジデント 追加カード選択</div>
+      </div>
+      <p style="color:var(--gold);font-size:13px;margin-bottom:12px;">
+        重ねるカード（パワー3以下）を1枚選んでください。<br>
+        <span style="color:var(--text-dim);font-size:11px;">選ばずに出すこともできます。</span>
+      </p>
+      <div class="zone-label">手札（パワー3以下）</div>
+      <div class="card-row">${cardHtml}</div>
+      <div style="margin-top:16px; display:flex; gap:12px; flex-wrap:wrap;">${confirmBtn}</div>
+    </div>
+    ${renderLog()}
+  `;
+}
+
+function actionPresidentSelectExtra(roleId){
+  if (!roleId){
+    delete state.pending.selectedExtra;
+  } else if (state.pending.selectedExtra === roleId){
+    delete state.pending.selectedExtra;
+  } else {
+    state.pending.selectedExtra = roleId;
+  }
+  render();
+}
+
+function actionPresidentConfirmExtra(){
+  const playerIdx = state.pending.presidentPlayerIdx;
+  const extraRole = state.pending.selectedExtra;
+  if (!extraRole) return;
+  const player = state.players[playerIdx];
+
+  // 手札からextraRoleを除く
+  const idx = player.hand.findIndex(c => c.id === extraRole);
+  if (idx >= 0) player.hand.splice(idx, 1);
+
+  // submittedRolesに追加
+  player.submittedRoles.push(extraRole);
+  log(`${player.name} のプレジデント: ${ROLES[extraRole].name}（パワー${ROLES[extraRole].power}）を重ねた（合計パワー${4 + ROLES[extraRole].power}）`);
+
+  state.pending = null;
+  processNextPresidentExtra();
+}
+
+function actionPresidentSkipExtra(){
+  const playerIdx = state.pending.presidentPlayerIdx;
+  log(`${state.players[playerIdx].name} のプレジデント: 重ねずに出す（パワー4）`);
+  state.pending = null;
+  processNextPresidentExtra();
+}
+
+// ディーラー効果：選択モーダルを表示する
+function effectDealer(player, done){
+  // 両プレイヤーのコレクションから、贋作（baseValue < 0）以外のカードを候補として集める
+  // eligible の各要素: { prod, playerIdx } — prodオブジェクトの参照と所有者インデックスを持つ
+  const eligible = [];
+  state.players.forEach(function(p, pIdx){
+    p.collection.forEach(function(prod){
+      if (prod.baseValue > 0){  // 贋作は選べない
+        eligible.push({ prod: prod, playerIdx: pIdx });
+      }
+    });
+  });
+
+  if (eligible.length === 0){
+    log(player.name + " のディーラー発動: 反転できる商品がなかった");
+    done();
+    return;
+  }
+
+  state.phase = "dealer_choose";
+  state.pending = {
+    playerIdx: player.idx,
+    eligible: eligible,
+    done: done
+  };
+  render();
+}
+
+// ディーラー効果：選択後の処理
+function effectDealerApply(prodId, skipped){
+  const pending = state.pending;
+  const player = state.players[pending.playerIdx];
+  const doneFn = pending.done;
+  state.pending = null;
+  state.phase = "reveal";
+
+  if (skipped || !prodId){
+    log(player.name + " のディーラー発動: 反転しなかった");
+  } else {
+    const found = pending.eligible.find(function(e){ return e.prod.id === prodId; });
+    if (found){
+      found.prod.flipped = !found.prod.flipped;
+      const newVal = currentValue(found.prod);
+      log(player.name + " のディーラー発動: 商品カード(" + (found.prod.baseValue > 0 ? "+" : "") + found.prod.baseValue + ") を反転 → 現在値 " + (newVal >= 0 ? "+" : "") + newVal);
+    }
+  }
+
+  doneFn();
+}
+
+function renderGameOver(){
+  const p1Score = state.players[0].collection.reduce((s,p)=> s + currentValue(p), 0);
+  const p2Score = state.players[1].collection.reduce((s,p)=> s + currentValue(p), 0);
+  const winner = p1Score > p2Score ? state.players[0] : (p2Score > p1Score ? state.players[1] : null);
+  app.innerHTML = `
+    <div class="start-screen">
+      <h1>FINIS</h1>
+      <div class="tagline">- 取引終了 -</div>
+      <div style="margin: 30px auto; max-width: 460px;">
+        <div style="display:flex; justify-content:space-between; padding: 14px; border: 1px solid var(--yellow); border-radius:6px; margin-bottom: 10px; background: rgba(196,131,26,0.08);">
+          <span>${state.players[0].name}</span>
+          <strong style="color: var(--gold-bright); font-size: 22px;">${p1Score >= 0 ? "+" : ""}${p1Score}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding: 14px; border: 1px solid var(--purple); border-radius:6px; background: rgba(107,45,138,0.08);">
+          <span>${state.players[1].name}</span>
+          <strong style="color: #b09cd0; font-size: 22px;">${p2Score >= 0 ? "+" : ""}${p2Score}</strong>
+        </div>
+      </div>
+      <h2 style="color: var(--gold); letter-spacing: 0.15em; font-weight: 400; margin: 20px 0;">
+        ${winner ? `${winner.name} の勝利！` : "引き分け"}
+      </h2>
+      <button class="primary" onclick="actionStart()">もう一度遊ぶ</button>
+      ${renderLog()}
+    </div>
+  `;
+}
+
+// --- 共通レンダリングパーツ -----------------------------------------
+function baseLayout(){
+  return `
+    <h1 class="logo">Re:BID</h1>
+    ${renderStage()}
+    ${renderPlayerSummary(0)}
+    ${renderPlayerSummary(1)}
+    ${renderLog()}
+  `;
+}
+
+function renderStage(){
+  const sum = sumStage();
+  return `
+    <div class="stage">
+      <div class="stage-title">場 — Stage</div>
+      <div class="stage-products">
+        ${state.stageProducts.length === 0
+          ? `<span style="color:var(--text-dim);">商品なし</span>`
+          : state.stageProducts.map(p => `<div class="card large">${productInner(p)}</div>`).join("")}
+      </div>
+      <div class="deck-info">山札残り: <strong>${state.deck.length}</strong></div>
+    </div>
+  `;
+}
+
+function renderPlayerSummary(idx){
+  const p = state.players[idx];
+  const klass = idx === 0 ? "p1" : "p2";
+  const score = p.collection.reduce((s,c)=> s + currentValue(c), 0);
+  return `
+    <div class="player-zone ${klass}">
+      <div class="player-header">
+        <div class="player-name ${klass}">${p.name}</div>
+        <div class="player-stats">
+          <span>得点<strong>${score >= 0 ? "+" : ""}${score}</strong></span>
+          <span>コレクション<strong>${p.collection.length}</strong></span>
+          <span>舞台裏<strong>${p.backstage.length}</strong></span>
+          <span>手札<strong>${p.hand.length}</strong></span>
+        </div>
+      </div>
+      ${p.collection.length > 0 ? `
+        <div class="zone-label">コレクション</div>
+        <div class="card-row">
+          ${p.collection.map(prod => `<div class="card" style="${prod.flipped ? "transform:rotate(180deg);" : ""}">${productInner(prod)}</div>`).join("")}
+        </div>
+      ` : ""}
+      ${p.backstage.length > 0 ? `
+        <div class="zone-label" style="margin-top:10px;">舞台裏（待機中）</div>
+        <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px;">
+          ${(() => {
+            const groups = {};
+            p.backstage.forEach(item => {
+              const key = item.roundsLeft;
+              if (!groups[key]) groups[key] = [];
+              groups[key].push(item);
+            });
+            return Object.keys(groups).sort((a,b)=>a-b).map(key => {
+              const items = groups[key];
+              const waitLeft = parseInt(key);
+              const pairedSummary = items.map(item => {
+                const role = item.role;
+                const pairedNames = item.paired && item.paired.length ? " / " + item.paired.map(r => ROLES[r].name).join(",") : "";
+                const pairedCards = (item.paired && item.paired.length)
+                  ? item.paired.map(r => `
+                      <div class="card backstage-card paired" title="${ROLES[r].name}（ジャーナリスト効果で一緒に待機中）">
+                        ${cardInner({id:r, ownerIdx: idx}, idx, false)}
+                      </div>
+                    `).join("")
+                  : "";
+                return `
+                  <div class="backstage-stack">
+                    <div class="card backstage-card" title="${ROLES[role].name}${pairedNames} あと${waitLeft}ラウンド待機">
+                      ${cardInner({id:role, ownerIdx: idx}, idx, false)}
+                    </div>
+                    ${pairedCards}
+                  </div>
+                `;
+              }).join("");
+              return `
+                <div style="display:flex; flex-direction:column; gap:4px;">
+                  <div style="font-size:10px; color:var(--gold); letter-spacing:0.12em; opacity:0.8;">▸ あと${waitLeft}ラウンド</div>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">${pairedSummary}</div>
+                </div>
+              `;
+            }).join("");
+          })()}
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderLog(){
+  return `
+    <div class="log">
+      ${state.log.slice().reverse().map(e => `<div class="log-entry ${e.klass||""}">${e.msg}</div>`).join("")}
+    </div>
+  `;
+}
+
+// プレイヤー情報パネル（コレクション＋舞台裏を左右1ブロックに統合）
+function renderPlayerInfoRow(viewerIdx){
+  return `
+    <div class="backstage-panel" style="padding:10px 12px;">
+      <div class="backstage-grid">
+        ${[0,1].map(idx => {
+          const p = state.players[idx];
+          const klass = idx === 0 ? "p1" : "p2";
+          const isSelf = idx === viewerIdx;
+          const score = p.collection.reduce((s,c) => s + currentValue(c), 0);
+          const scoreColor = score >= 0 ? "var(--gold-bright)" : "#f88";
+          return `
+            <div class="backstage-side ${klass}" style="padding:8px 10px;">
+              <div class="backstage-side-header" style="margin-bottom:6px;">
+                <span class="player-name ${klass}" style="font-size:13px;">${p.name}</span>
+                <span style="font-size:11px;color:var(--text-dim);">${isSelf ? "自分" : "相手"}</span>
+              </div>
+              <div style="font-size:9px;letter-spacing:0.2em;color:var(--text-dim);text-transform:uppercase;margin-bottom:5px;">
+                獲得済み &nbsp;<strong style="color:${scoreColor};font-size:11px;">${score >= 0 ? "+" : ""}${score}</strong>
+              </div>
+              <div style="display:flex;gap:5px;flex-wrap:wrap;min-height:58px;align-items:flex-start;margin-bottom:8px;">
+                ${p.collection.length === 0
+                  ? `<div class="backstage-empty" style="padding:10px 4px;">― なし ―</div>`
+                  : p.collection.map(prod => `
+                      <div class="card backstage-card" style="${prod.flipped ? "transform:rotate(180deg);" : ""}" title="${currentValue(prod) >= 0 ? "+" : ""}${currentValue(prod)}">
+                        ${productInner(prod)}
+                      </div>`).join("")}
+              </div>
+              <div style="border-top:1px dashed rgba(212,163,71,0.12);margin-bottom:7px;"></div>
+              <div style="font-size:9px;letter-spacing:0.2em;color:var(--text-dim);text-transform:uppercase;margin-bottom:5px;">舞台裏</div>
+              <div style="display:flex;flex-direction:column;gap:6px;min-height:40px;">
+                ${buildBackstageHtml(p, idx)}
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
+
+function renderBackstageCard(item, ownerIdx){
+  const role = item.role;
+  const pairedHtml = (item.paired && item.paired.length)
+    ? item.paired.map(r => `
+        <div class="card backstage-card paired" title="${ROLES[r].name}">
+          ${cardInner({id:r, ownerIdx}, ownerIdx, false)}
+        </div>
+      `).join("")
+    : "";
+  return `
+    <div class="backstage-stack">
+      <div class="card backstage-card" title="${ROLES[role].name}">
+        ${cardInner({id:role, ownerIdx}, ownerIdx, false)}
+      </div>
+      ${pairedHtml}
+    </div>
+  `;
+}
+
+// 舞台裏カード一覧のHTMLを組み立てる（showBackstagePopup と renderPlayerInfoRow から共通利用）
+function buildBackstageHtml(p, idx){
+  if (p.backstage.length === 0) return `<div class="backstage-empty">― 空 ―</div>`;
+  const groups = {};
+  p.backstage.forEach(item => {
+    if (!groups[item.roundsLeft]) groups[item.roundsLeft] = [];
+    groups[item.roundsLeft].push(item);
+  });
+  // ラウンドグループを横並びで出す。各カードの下に「あとNR」バッジを添える
+  const allItems = Object.keys(groups).sort((a,b)=>a-b).flatMap(key => {
+    const waitLeft = parseInt(key);
+    return groups[key].map(item => `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+          ${renderBackstageCard(item, idx)}
+          <div style="font-size:9px;color:var(--gold);letter-spacing:0.08em;opacity:0.85;">あと${waitLeft}R</div>
+        </div>`);
+  });
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;">${allItems.join("")}</div>`;
+}
+
+// カード中身レンダリング
+function cardInner(card, playerIdx, faceDown){
+  if (faceDown){
+    const path = roleBackImg(playerIdx);
+    return `<img src="${path}" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=&quot;card-fallback role ${playerIdx===0?"p1":"p2"}&quot;><div class=&quot;name&quot;>Re:BID</div></div>';" alt="">`;
+  }
+  const role = ROLES[card.id];
+  const path = roleImg(playerIdx, card.id);
+  const fallbackHtml = `<div class=&quot;card-fallback role ${playerIdx===0?"p1":"p2"}&quot;><div class=&quot;name&quot;>${role.ja}</div><div class=&quot;power&quot;>${role.power}</div></div>`;
+  return `<img src="${path}" onerror="this.style.display='none';this.parentElement.innerHTML='${fallbackHtml}';" alt="${role.name}">`;
+}
+
+function productInner(prod){
+  const v = currentValue(prod);
+  // 画像パスは常にbaseValueで決める（反転済みでも元のカード画像を使い、回転は親要素のtransformで表現）
+  const path = productImg(prod.baseValue);
+  const cls = v < 0 ? "card-fallback product negative" : "card-fallback product";
+  const sign = v >= 0 ? "+" : "";
+  const fallbackHtml = `<div class=&quot;${cls}&quot;><div class=&quot;name&quot;>ART</div><div class=&quot;power&quot;>${sign}${v}</div></div>`;
+  return `<img src="${path}" onerror="this.style.display='none';this.parentElement.innerHTML='${fallbackHtml}';" alt="${sign}${v}">`;
+}
+
+// --- onclick から呼び出されるアクションをグローバル公開 ------------
+// HTML 文字列内の onclick="actionXxx()" から参照されるため window に登録する。
+// 関数宣言は hoist されるので、ここでまとめて代入しても初期描画前に登録は完了する。
+Object.assign(window, {
+  actionStart,
+  actionTransitionContinue,
+  actionSelectBidCard,
+  actionClearBid,
+  actionConfirmBid,
+  showBackstagePopup,
+  actionPredict,
+  actionDealerPick,
+  actionDealerSkip,
+  actionPresidentSelectExtra,
+  actionPresidentConfirmExtra,
+  actionPresidentSkipExtra,
+});
+
+// --- 起動 --------------------------------------------------------
+renderStart();
+</script>
+</body>
+</html>
